@@ -4,11 +4,11 @@
 @mail: 805349916@qq.com
 '''
 
-from utils.MongoUtils import MongoUtils
+from utils.MongoUtil import MongoUtil
 import os
-import configs.Settings as Settings
+import configs.Setting as Setting
 
-class TaskUtils:
+class TaskUtil:
     '''
     Task操作工具
     tasks
@@ -22,19 +22,20 @@ class TaskUtils:
     }
     '''
     def __init__(self):
-        self.mongoUtils = None
-        self.mongoUtils = MongoUtils()
-        count=self.mongoUtils.count(collection_name='tasks')
+        self.mongoUtil = MongoUtil()
+        count=self.mongoUtil.count(collection_name='tasks')
         if count==0:
-            first_task_parser = Settings.FIRST_TASK_PARSER
-            first_task_url = Settings.FIRST_TASK_URL
+            first_task_parser = Setting.FIRST_TASK_PARSER
+            first_task_url = Setting.FIRST_TASK_URL
+            first_task_table = Setting.FIRST_TASK_TABLE
             insert_data = {
                 "parser": first_task_parser,
                 "request": first_task_url,
+                "table": first_task_table,
                 "parent":{},
                 "state": "ready"
             }
-            self.mongoUtils.insert(collection_name='tasks', insert_data=insert_data)
+            self.mongoUtil.insert(collection_name='tasks', insert_data=insert_data)
 
     def get_ready(self):
         '''
@@ -59,7 +60,7 @@ class TaskUtils:
             }
         }
         # 执行mongo操作
-        task = self.mongoUtils.find_and_update(collection_name='tasks', filter_dict=filter_dict, update_dict=update_dict)
+        task = self.mongoUtil.find_one_and_update(collection_name='tasks', filter_dict=filter_dict, update_dict=update_dict)
         return task
 
     def set_state(self,id,state):
@@ -73,37 +74,32 @@ class TaskUtils:
         update_dict = {
             '$set':{'state':state}
         }
-        self.mongoUtils.update(collection_name='tasks', filter_dict=filter_dict, update_dict=update_dict)
+        self.mongoUtil.update(collection_name='tasks', filter_dict=filter_dict, update_dict=update_dict)
 
-    def update_all(self,id,task):
+    def replace_one(self, id, task):
         '''
         更新整个任务
         :param id: str
         :param task: dict
         :return: 无
         '''
+        filter_dict={
+            '_id':id
+        }
+        r=self.mongoUtil.find_one_and_replace(collection_name='tasks', filter_dict=filter_dict, replace_dict=task)
+        return r
 
-    def insert_one(self, parser, request ,parent):
+    def insert_one(self, task):
         '''
         插入一条task
         :param parser: str 解析器
         :param request: str 请求的url
         :return: 无
         '''
-        filter_dict={
-            'parser': parser,
-            'request': request,
-            'parent': parent
-        }
-        r = self.mongoUtils.find_one(collection_name='tasks', filter_dict=filter_dict)
+        r = self.mongoUtil.find_one(collection_name='tasks', filter_dict=task)
         if r is None:
-            task = {
-                'parser': parser,
-                'request': request,
-                'parent': parent,
-                'state': 'ready'
-            }
-            r=self.mongoUtils.insert(collection_name='tasks', insert_data=task)
+            task['state']='ready'
+            r=self.mongoUtil.insert(collection_name='tasks', insert_data=task)
 
     def __del__(self):
-        self.mongoUtils.close_conn()
+        self.mongoUtil.close_conn()

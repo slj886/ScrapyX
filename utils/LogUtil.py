@@ -11,11 +11,11 @@ import sys
 import threading
 from queue import Queue
 from pymongo import MongoClient
-from configs import Settings
-from utils.ConfigUtils import ConfigUtils
+from configs import Setting
+from utils.ConfigUtil import ConfigUtil
 
 
-class log():
+class Log():
     '''
     日志处理类，输出到console和mongodb
     DEBUG,INFO, WARN，ERROR
@@ -30,7 +30,7 @@ class log():
         fileName = os.path.basename(sys._getframe().f_back.f_code.co_filename)
         funcName = sys._getframe().f_back.f_code.co_name  # 获取调用函数名
         lineNumber = sys._getframe().f_back.f_lineno  # 获取行号
-        log._print('DEBUG', funcName + '(),' + fileName + ':' + str(lineNumber), text)
+        Log._print('DEBUG', funcName + '(),' + fileName + ':' + str(lineNumber), text)
         pass
 
     @staticmethod
@@ -43,7 +43,7 @@ class log():
         fileName = os.path.basename(sys._getframe().f_back.f_code.co_filename)
         funcName = sys._getframe().f_back.f_code.co_name  # 获取调用函数名
         lineNumber = sys._getframe().f_back.f_lineno  # 获取行号
-        log._print('INFO', funcName + '(),' + fileName + ':' + str(lineNumber), text)
+        Log._print('INFO', funcName + '(),' + fileName + ':' + str(lineNumber), text)
         pass
 
     @staticmethod
@@ -56,7 +56,7 @@ class log():
         fileName = os.path.basename(sys._getframe().f_back.f_code.co_filename)
         funcName = sys._getframe().f_back.f_code.co_name  # 获取调用函数名
         lineNumber = sys._getframe().f_back.f_lineno  # 获取行号
-        log._print('WARN', funcName + '(),' + fileName + ':' + str(lineNumber), text)
+        Log._print('WARN', funcName + '(),' + fileName + ':' + str(lineNumber), text)
         pass
 
     @staticmethod
@@ -69,7 +69,7 @@ class log():
         fileName = os.path.basename(sys._getframe().f_back.f_code.co_filename)
         funcName = sys._getframe().f_back.f_code.co_name  # 获取调用函数名
         lineNumber = sys._getframe().f_back.f_lineno  # 获取行号
-        log._print('ERROR', funcName + '(),' + fileName + ':' + str(lineNumber), text)
+        Log._print('ERROR', funcName + '(),' + fileName + ':' + str(lineNumber), text)
         pass
 
     @staticmethod
@@ -84,7 +84,7 @@ class log():
         log_timestring = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         pid=os.getpid()
         #将log写入console
-        config_level = ConfigUtils.get('log', 'level')
+        config_level = ConfigUtil.get('log', 'level')
         enum_level=['DEBUG', 'INFO', 'WARN', 'ERROR']
         level_index=enum_level.index(level) if level in enum_level else -1
         config_level_index=enum_level.index(config_level) if config_level in enum_level else -1
@@ -103,7 +103,7 @@ class log():
         pass
 
 
-class MongoLog(threading.Thread):
+class _MongoLog(threading.Thread):
     '''
     Mongodb写log类
     '''
@@ -116,11 +116,17 @@ class MongoLog(threading.Thread):
 
     def run(self):
         while True:
-            insert_data=self.queue.get()
-            if insert_data:
+            try:
+                insert_data=self.queue.get(block=False)
                 self._insert(insert_data=insert_data)
-            else:
-                time.sleep(2)
+            except  Exception as e:
+                exit_flag=getattr(Setting,'exit_flag',False)
+                if exit_flag:
+                    break
+                else:
+                    time.sleep(1)
+            finally:
+                pass
         pass
 
     def _insert(self,insert_data):
@@ -130,12 +136,12 @@ class MongoLog(threading.Thread):
         :param insert_data: 日志数据
         :return: 无
         '''
-        host=Settings.MONGO_HOST
-        port = Settings.MONGO_PORT
-        db_name = Settings.MONGO_DB
-        mechanism = Settings.MONGO_MECHANISM
-        user=Settings.MONGO_USER
-        password=Settings.MONGO_PASSWORD
+        host=Setting.MONGO_HOST
+        port = Setting.MONGO_PORT
+        db_name = Setting.MONGO_DB
+        mechanism = Setting.MONGO_MECHANISM
+        user=Setting.MONGO_USER
+        password=Setting.MONGO_PASSWORD
         client = None
         try:
             client = MongoClient(host, int(port))
@@ -149,14 +155,14 @@ class MongoLog(threading.Thread):
                 client.close()
 
 #创建单例对象(内含对列)
-mongoLog=MongoLog()
+mongoLog=_MongoLog()
 mongoLog.start()
 
 def test():
-    log.d("hello world你好")
-    log.i("hello world你好你好")
-    log.w("hello world你好你好你好")
-    log.e("hello world你好你好你好你好")
+    Log.d("hello world你好")
+    #Log.i("hello world你好你好")
+    #Log.w("hello world你好你好你好")
+    #Log.e("hello world你好你好你好你好")
 
 if __name__ == '__main__':
     test()
